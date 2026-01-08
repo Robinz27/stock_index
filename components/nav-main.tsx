@@ -1,6 +1,6 @@
 "use client"
 
-import { IconChartLine, IconMail, type Icon } from "@tabler/icons-react"
+import { IconChartLine, type Icon } from "@tabler/icons-react"
 
 import {
   SidebarGroup,
