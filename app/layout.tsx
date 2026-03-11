@@ -1,37 +1,37 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import { ThemeProvider } from "next-themes";
-import "./globals.css";
+import React from "react"
+import type { Metadata } from 'next'
+import { Geist, Geist_Mono } from 'next/font/google'
+import { Analytics } from '@vercel/analytics/next'
+import './globals.css'
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+const _geist = Geist({ subsets: ["latin"] });
+const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Stock index",
-  description: "Dashboard for stock market indices",
-};
+  title: 'Stock Dashboard - Thai Stock Market',
+  description: 'Real-time stock price tracking and analysis for Thai stock market',
+  generator: 'v0.app',
+  icons: {
+    icon: '/Logo.jpg',
+    apple: '/Logo.jpg',
+  },
+}
+
+import { Providers } from "@/components/providers"
 
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode;
+  children: React.ReactNode
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+      <body className={`font-sans antialiased`}>
+        <Providers>
           {children}
-        </ThemeProvider>
+        </Providers>
+        <Analytics />
       </body>
     </html>
-  );
+  )
 }
