@@ -1,8 +1,7 @@
 'use client'
 
 import React from "react"
-
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import useSWR from 'swr'
 import { useRouter } from 'next/navigation'
 import { Input } from '@/components/ui/input'
@@ -10,16 +9,12 @@ import { Button } from '@/components/ui/button'
 import { StockMetricCard } from '@/components/stock-metric-card'
 import { StockChart } from '@/components/stock-chart'
 import { FuturePredictionCard } from '@/components/future-prediction-card'
-import { Search, Sun, Moon, Clock, LayoutDashboard } from 'lucide-react'
+import { Search, Sun, Moon, Clock } from 'lucide-react'
 import { useTheme } from "next-themes"
 import type { StockData, TimePeriod } from '@/lib/types'
 import { UserMenu } from '@/components/user-menu'
 import { toast } from 'sonner'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
+import { Skeleton } from '@/components/ui/skeleton'
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
@@ -30,6 +25,8 @@ export function StockDashboard({ symbol: initialSymbol = 'PTT.BK' }: { symbol?: 
   const [searchInput, setSearchInput] = useState('')
   const [period, setPeriod] = useState<TimePeriod>('30d')
   const [showHistory, setShowHistory] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   // Update internal symbol if prop changes
   useEffect(() => {
@@ -38,7 +35,23 @@ export function StockDashboard({ symbol: initialSymbol = 'PTT.BK' }: { symbol?: 
     }
   }, [initialSymbol])
 
-  const { data: history, mutate: mutateHistory } = useSWR<any[]>(
+  // Click outside to close dropdown
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target as Node) &&
+        inputRef.current &&
+        !inputRef.current.contains(e.target as Node)
+      ) {
+        setShowHistory(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const { data: history, mutate: mutateHistory, isLoading: isLoadingHistory } = useSWR<any[]>(
     '/api/search-history',
     fetcher
   )
@@ -59,10 +72,8 @@ export function StockDashboard({ symbol: initialSymbol = 'PTT.BK' }: { symbol?: 
       setSearchInput('')
       setShowHistory(false)
 
-      // Use Pretty URL
       router.push(`/stock/${newSymbol}`)
 
-      // Save to history
       try {
         await fetch('/api/search-history', {
           method: 'POST',
@@ -93,10 +104,15 @@ export function StockDashboard({ symbol: initialSymbol = 'PTT.BK' }: { symbol?: 
     return data.currency
   }
 
+  const filteredHistory = (history || []).filter(item =>
+    !searchInput.trim() || item.symbol.toLowerCase().includes(searchInput.toLowerCase())
+  )
+
+  const shouldShowDropdown = showHistory && (isLoadingHistory || filteredHistory.length > 0)
+
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border/50 bg-card/30 backdrop-blur-sm">
+      <header className="relative z-[100] border-b border-border/50 bg-card/30 backdrop-blur-sm">
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4">
           <UserMenu />
 
@@ -108,24 +124,24 @@ export function StockDashboard({ symbol: initialSymbol = 'PTT.BK' }: { symbol?: 
           <form onSubmit={handleSearch} className="flex gap-2 flex-1 max-w-md">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Popover open={showHistory && history && history.length > 0} onOpenChange={setShowHistory}>
-                <PopoverTrigger asChild>
-                  <Input
-                    type="text"
-                    placeholder="Search stocks..."
-                    value={searchInput}
-                    onChange={(e) => {
-                      setSearchInput(e.target.value)
-                      if (!showHistory) setShowHistory(true)
-                    }}
-                    onFocus={() => setShowHistory(true)}
-                    className="pl-9 bg-muted/50 focus-visible:ring-primary/20 transition-all"
-                  />
-                </PopoverTrigger>
-                <PopoverContent
-                  className="w-[var(--radix-popover-trigger-width)] p-0 border-border/50 bg-card/95 backdrop-blur-xl"
-                  align="start"
-                  sideOffset={8}
+              <Input
+                ref={inputRef}
+                type="text"
+                placeholder="Search stocks..."
+                value={searchInput}
+                onChange={(e) => {
+                  setSearchInput(e.target.value)
+                  if (!showHistory) setShowHistory(true)
+                }}
+                onFocus={() => setShowHistory(true)}
+                className="pl-9 bg-muted/50 focus-visible:ring-primary/20 transition-all"
+              />
+
+              {/* Custom Dropdown - no Radix Popover, fully controlled */}
+              {shouldShowDropdown && (
+                <div
+                  ref={dropdownRef}
+                  className="absolute left-0 right-0 top-full mt-2 z-[9999] rounded-md border border-border/50 bg-card/95 backdrop-blur-xl shadow-lg animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-200"
                 >
                   <div className="flex items-center justify-between px-3 py-2 border-b border-border/40">
                     <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80">
@@ -133,12 +149,17 @@ export function StockDashboard({ symbol: initialSymbol = 'PTT.BK' }: { symbol?: 
                       Recent Searches
                     </div>
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        // In a real app, you'd call a delete API here. 
-                        // For now, let's just mutate local state to empty.
-                        mutateHistory([], false);
-                        toast.success("History cleared");
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={async () => {
+                        try {
+                          await fetch('/api/search-history', { method: 'DELETE' });
+                          mutateHistory([], false);
+                          setShowHistory(false);
+                          toast.success("ประวัติการค้นหาถูกลบแล้ว");
+                        } catch (err) {
+                          toast.error("ไม่สามารถลบประวัติการค้นหาได้");
+                        }
                       }}
                       className="text-[10px] font-medium text-muted-foreground hover:text-primary transition-colors"
                     >
@@ -146,24 +167,34 @@ export function StockDashboard({ symbol: initialSymbol = 'PTT.BK' }: { symbol?: 
                     </button>
                   </div>
                   <div className="p-1">
-                    {history?.map((item, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => selectFromHistory(item.symbol)}
-                        className="flex w-full items-center justify-between rounded-sm px-3 py-2 text-sm hover:bg-muted/50 transition-all group"
-                      >
-                        <div className="flex items-center gap-3">
-                          <Search className="h-3.5 w-3.5 text-muted-foreground/50 group-hover:text-primary/70 transition-colors" />
-                          <span className="font-medium text-foreground/90">{item.symbol}</span>
-                        </div>
-                        <span className="text-[10px] text-muted-foreground/60">
-                          {new Date(item.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                        </span>
-                      </button>
-                    ))}
+                    {isLoadingHistory ? (
+                      <div className="space-y-1 p-2">
+                        <Skeleton className="h-8 w-full" />
+                        <Skeleton className="h-8 w-full" />
+                        <Skeleton className="h-8 w-full" />
+                      </div>
+                    ) : (
+                      filteredHistory.map((item, idx) => (
+                        <button
+                          type="button"
+                          key={idx}
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => selectFromHistory(item.symbol)}
+                          className="flex w-full items-center justify-between rounded-sm px-3 py-2 text-sm hover:bg-muted/50 transition-all group"
+                        >
+                          <div className="flex items-center gap-3">
+                            <Search className="h-3.5 w-3.5 text-muted-foreground/50 group-hover:text-primary/70 transition-colors" />
+                            <span className="font-medium text-foreground/90">{item.symbol}</span>
+                          </div>
+                          <span className="text-[10px] text-muted-foreground/60">
+                            {new Date(item.createdAt || item.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                          </span>
+                        </button>
+                      ))
+                    )}
                   </div>
-                </PopoverContent>
-              </Popover>
+                </div>
+              )}
             </div>
             <Button type="submit" size="sm" className="px-4">
               Search
@@ -179,7 +210,6 @@ export function StockDashboard({ symbol: initialSymbol = 'PTT.BK' }: { symbol?: 
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="mx-auto max-w-7xl p-4">
         {isLoading && (
           <div className="flex h-[60vh] items-center justify-center">
@@ -206,7 +236,6 @@ export function StockDashboard({ symbol: initialSymbol = 'PTT.BK' }: { symbol?: 
 
         {data && !isLoading && !data.error && (
           <div className="space-y-4">
-            {/* Metrics Grid - Row 1: Opening Price, Highest Price, Trading Volume */}
             <div className="grid gap-4 md:grid-cols-3">
               <StockMetricCard
                 label={data.metrics.open.label}
@@ -234,7 +263,6 @@ export function StockDashboard({ symbol: initialSymbol = 'PTT.BK' }: { symbol?: 
               />
             </div>
 
-            {/* Metrics Grid - Row 2: Close Price, Lowest Price, Adj Close Price */}
             <div className="grid gap-4 md:grid-cols-3">
               <StockMetricCard
                 label={data.metrics.close.label}
@@ -262,14 +290,12 @@ export function StockDashboard({ symbol: initialSymbol = 'PTT.BK' }: { symbol?: 
               />
             </div>
 
-            {/* Chart */}
             <StockChart
               data={data.chartData}
               period={period}
               onPeriodChange={setPeriod}
             />
 
-            {/* Future Price Prediction */}
             <FuturePredictionCard />
           </div>
         )}

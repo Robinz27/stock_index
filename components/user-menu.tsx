@@ -31,7 +31,7 @@ export function UserMenu() {
                     </Avatar>
                 </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56" align="end" forceMount>
+            <DropdownMenuContent className="w-56 z-[9999]" align="start" side="bottom" avoidCollisions forceMount>
                 <DropdownMenuLabel className="font-normal px-2 py-3">
                     <div className="flex flex-col space-y-1">
                         <p className="text-sm font-semibold leading-none text-foreground">{user.name}</p>

@@ -136,9 +136,9 @@ export default function LoginPage() {
                 <div className="relative w-full bg-card/60 dark:bg-black/60 backdrop-blur-xl text-card-foreground border border-border/50 shadow-2xl rounded-2xl overflow-hidden z-10">
                     <Tabs defaultValue="login" className="w-full">
                         <div className="p-6 pb-0">
-                            <TabsList className="grid w-full grid-cols-2">
-                                <TabsTrigger value="login" className="rounded-md">เข้าสู่ระบบ</TabsTrigger>
-                                <TabsTrigger value="register" className="rounded-md">สมัครสมาชิก</TabsTrigger>
+                            <TabsList className="grid w-full grid-cols-2 bg-muted/50 p-1 rounded-lg">
+                                <TabsTrigger value="login" className="rounded-md data-[state=active]:bg-background data-[state=active]:border data-[state=active]:border-primary/50 data-[state=active]:shadow-sm transition-all">เข้าสู่ระบบ</TabsTrigger>
+                                <TabsTrigger value="register" className="rounded-md data-[state=active]:bg-background data-[state=active]:border data-[state=active]:border-primary/50 data-[state=active]:shadow-sm transition-all">สมัครสมาชิก</TabsTrigger>
                             </TabsList>
                         </div>
 

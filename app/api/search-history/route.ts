@@ -86,3 +86,32 @@ export async function POST(req: Request) {
         return NextResponse.json({ message: "Error saving history" }, { status: 500 })
     }
 }
+export async function DELETE() {
+    const session = await getServerSession()
+
+    if (!session?.user) {
+        return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+    }
+
+    try {
+        const username = (session.user as any).username || session.user.name;
+        const [user] = await drizzledb
+            .select({ id: users.id })
+            .from(users)
+            .where(or(eq(users.username, username), eq(users.name, username)))
+            .limit(1);
+
+        if (!user) {
+            return NextResponse.json({ message: "User not found" }, { status: 404 })
+        }
+
+        await drizzledb
+            .delete(searchHistory)
+            .where(eq(searchHistory.userId, user.id));
+
+        return NextResponse.json({ message: "History cleared" })
+    } catch (error: any) {
+        console.error("Search history clear error:", error)
+        return NextResponse.json({ message: "Error clearing history" }, { status: 500 })
+    }
+}
